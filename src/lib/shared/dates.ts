@@ -99,3 +99,13 @@ export function formatMinutes(min: number): string {
   if (!h) return `${m}m`;
   return m ? `${h}h ${m}m` : `${h}h`;
 }
+
+/** UTC instant of local midnight at the start of a date (Karachi has no DST). */
+export function startOfDayUTC(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const guess = Date.UTC(y, m - 1, d);
+  const p = zonedParts(new Date(guess));
+  const [ly, lm, ld] = p.date.split("-").map(Number);
+  const localAsUTC = Date.UTC(ly, lm - 1, ld, p.hour, p.minute);
+  return new Date(guess - (localAsUTC - guess)).toISOString();
+}
