@@ -4,6 +4,19 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Expected #rrggbb");
 const id = z.number().int().positive();
 
+/**
+ * Like `.partial()`, but without defaults. In Zod 4 `.partial()` still applies
+ * `.default()` values, which would make a PATCH overwrite fields it didn't mention.
+ */
+function patchOf<S extends z.ZodRawShape>(schema: z.ZodObject<S>) {
+  const shape: Record<string, z.ZodType> = {};
+  for (const [key, field] of Object.entries(schema.shape)) {
+    const inner = field instanceof z.ZodDefault ? (field.unwrap() as z.ZodType) : (field as z.ZodType);
+    shape[key] = inner.optional();
+  }
+  return z.object(shape) as unknown as z.ZodType<Partial<z.output<z.ZodObject<S>>>>;
+}
+
 export const RecurrenceRule = z.discriminatedUnion("type", [
   z.object({ type: z.literal("daily") }),
   z.object({ type: z.literal("weekdays"), days: z.array(z.number().int().min(1).max(7)).min(1).max(7) }),
@@ -18,7 +31,7 @@ export const AreaInput = z.object({
   icon: z.string().max(40).default("circle"),
   archived: z.boolean().default(false),
 });
-export const AreaPatch = AreaInput.partial();
+export const AreaPatch = patchOf(AreaInput);
 
 export const GoalStatus = z.enum(["active", "completed", "paused", "abandoned"]);
 export const GoalInput = z.object({
@@ -33,7 +46,7 @@ export const GoalInput = z.object({
   deadline: isoDate.nullable().default(null),
   status: GoalStatus.default("active"),
 });
-export const GoalPatch = GoalInput.partial();
+export const GoalPatch = patchOf(GoalInput);
 
 export const MilestoneInput = z.object({
   title: z.string().trim().min(1).max(120),
@@ -41,7 +54,7 @@ export const MilestoneInput = z.object({
   done: z.boolean().default(false),
   sort_order: z.number().int().default(0),
 });
-export const MilestonePatch = MilestoneInput.partial();
+export const MilestonePatch = patchOf(MilestoneInput);
 
 export const TaskStatus = z.enum(["todo", "done", "skipped"]);
 export const TaskInput = z.object({
@@ -56,10 +69,12 @@ export const TaskInput = z.object({
   scheduled_date: isoDate.nullable().default(null),
   is_top3: z.boolean().default(false),
 });
-export const TaskPatch = TaskInput.partial().extend({
-  status: TaskStatus.optional(),
-  actual_min: z.number().int().min(0).max(100_000).optional(),
-});
+export const TaskPatch = patchOf(
+  TaskInput.extend({
+    status: TaskStatus,
+    actual_min: z.number().int().min(0).max(100_000),
+  }),
+);
 export const ReorderInput = z.object({ ids: z.array(id).min(1).max(500) });
 
 export const HabitInput = z.object({
@@ -70,7 +85,7 @@ export const HabitInput = z.object({
   estimate_min: z.number().int().min(0).max(24 * 60).nullable().default(null),
   active: z.boolean().default(true),
 });
-export const HabitPatch = HabitInput.partial();
+export const HabitPatch = patchOf(HabitInput);
 
 export const ProgressLogInput = z.object({
   date: isoDate.optional(),

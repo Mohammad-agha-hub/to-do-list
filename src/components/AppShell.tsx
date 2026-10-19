@@ -15,6 +15,8 @@ import {
   Target,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { QuickAddFab, SyncStatus } from "./ShellExtras";
+import { TaskUIProvider } from "./TaskSheets";
 
 const MAIN_NAV = [
   { href: "/", label: "Today", icon: SunMedium },
@@ -44,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
+    <TaskUIProvider>
     <div className="min-h-dvh lg:flex">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface/70 px-4 py-6 backdrop-blur lg:flex">
@@ -56,17 +59,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SideLink key={n.href} {...n} active={isActive(pathname, n.href)} />
           ))}
         </nav>
+        <QuickAddFab variant="sidebar" />
         <div className="section-title mt-8 mb-2 px-3">Plan</div>
         <nav className="space-y-1">
           {SECONDARY_NAV.map((n) => (
             <SideLink key={n.href} {...n} active={pathname.startsWith(n.href)} />
           ))}
         </nav>
+        <div className="mt-auto px-3">
+          <SyncStatus />
+        </div>
       </aside>
 
       <main className="mx-auto w-full max-w-[480px] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-28 lg:max-w-[600px] lg:px-8 lg:pt-10 lg:pb-12">
+        <div className="lg:hidden">
+          <SyncStatus />
+        </div>
         {children}
       </main>
+      <QuickAddFab variant="fab" />
 
       {/* Mobile bottom nav */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/85 backdrop-blur-lg lg:hidden">
@@ -92,6 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
     </div>
+    </TaskUIProvider>
   );
 }
 
