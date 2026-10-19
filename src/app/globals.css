@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light-blue modern palette. Area colors are accents only. */
+:root {
+  --bg: #f2f7fd;
+  --surface: #ffffff;
+  --surface-2: #eaf3fd;
+  --line: #dce8f5;
+  --fg: #0e1b2e;
+  --muted: #5e6f88;
+  --primary: #2b8ceb;
+  --primary-strong: #1670cc;
+  --primary-soft: #e2f0fd;
+  --on-primary: #ffffff;
+  --success: #1fa36b;
+  --success-soft: #dff5ea;
+  --warning: #d38a1f;
+  --warning-soft: #fbf0dc;
+  --danger: #e0474f;
+  --danger-soft: #fde5e6;
+  --track: #ddebfa;
+  --glow: rgb(43 140 235 / 0.12);
+  --shadow: 0 1px 2px rgb(16 42 80 / 0.04), 0 8px 24px -12px rgb(16 42 80 / 0.14);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #09111f;
+  --surface: #101a2c;
+  --surface-2: #16233a;
+  --line: #1f2f4a;
+  --fg: #e5eef9;
+  --muted: #8b9cb6;
+  --primary: #5baef8;
+  --primary-strong: #8cc7fb;
+  --primary-soft: rgb(91 174 248 / 0.14);
+  --on-primary: #06111f;
+  --success: #3ccb8b;
+  --success-soft: rgb(60 203 139 / 0.14);
+  --warning: #f0b252;
+  --warning-soft: rgb(240 178 82 / 0.14);
+  --danger: #f26b72;
+  --danger-soft: rgb(242 107 114 / 0.14);
+  --track: #1b2a43;
+  --glow: rgb(91 174 248 / 0.10);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -14px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-track: var(--track);
+  --shadow-card: var(--shadow);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  background-image: radial-gradient(900px 340px at 50% -120px, var(--glow), transparent 70%);
+  background-repeat: no-repeat;
+  -webkit-tap-highlight-color: transparent;
+  font-feature-settings: "cv11", "ss01";
+}
+
+@utility card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+}
+
+@utility btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+}
+
+@utility btn-primary {
+    @apply btn bg-primary text-on-primary hover:bg-primary-strong;
+}
+
+@utility btn-soft {
+    @apply btn bg-primary-soft text-primary hover:brightness-95;
+}
+
+@utility btn-ghost {
+    @apply btn text-muted hover:bg-surface-2 hover:text-fg;
+}
+
+@utility input {
+    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/15;
+}
+
+@utility label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+}
+
+@utility chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+}
+
+@utility section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-pop { animation: pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.animate-sheet { animation: sheet-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-fade { animation: fade-in 0.2s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
