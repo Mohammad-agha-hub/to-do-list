@@ -1,10 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { CloudOff, Plus, RefreshCw } from "lucide-react";
+import { CloudOff, Plus, RefreshCw, Timer } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { flushQueue, onQueueChange, pendingCount } from "@/lib/client/api";
+import { formatClock, loadFocus, remainingMs, type FocusState } from "@/lib/client/focus";
 import { invalidateTaskViews, useBootstrap } from "@/lib/client/hooks";
 import { addDays } from "@/lib/shared/dates";
 import { useTaskUI } from "./TaskSheets";
@@ -103,5 +105,35 @@ export function SyncStatus() {
       {online ? <RefreshCw className="size-3.5 animate-spin" /> : <CloudOff className="size-3.5" />}
       {online ? `Syncing ${pending} change${pending === 1 ? "" : "s"}…` : `Offline${pending ? ` · ${pending} change${pending === 1 ? "" : "s"} waiting` : " · changes will sync later"}`}
     </div>
+  );
+}
+
+/** Shows a running focus session so it's one tap away from any page. */
+export function FocusPill() {
+  const pathname = usePathname();
+  const [state, setState] = useState<FocusState | null>(null);
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    const tick = () => {
+      setState(loadFocus());
+      setNow(Date.now());
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [pathname]);
+
+  if (!state || pathname.startsWith("/focus")) return null;
+  const paused = state.pausedRemaining !== null;
+  return (
+    <Link
+      href="/focus"
+      className="mb-3 flex items-center gap-2 rounded-xl bg-primary-soft px-3 py-2 text-xs font-medium text-primary lg:mb-0"
+    >
+      <Timer className="size-3.5" />
+      {state.phase === "focus" ? "Focus" : "Break"} {paused ? "paused" : "running"}
+      <span className="ml-auto tabular-nums">{formatClock(remainingMs(state, now))}</span>
+    </Link>
   );
 }

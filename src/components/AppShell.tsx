@@ -15,7 +15,7 @@ import {
   Target,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { QuickAddFab, SyncStatus } from "./ShellExtras";
+import { FocusPill, QuickAddFab, SyncStatus } from "./ShellExtras";
 import { TaskUIProvider } from "./TaskSheets";
 
 const MAIN_NAV = [
@@ -66,13 +66,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SideLink key={n.href} {...n} active={pathname.startsWith(n.href)} />
           ))}
         </nav>
-        <div className="mt-auto px-3">
+        <div className="mt-auto space-y-2 px-3">
+          <FocusPill />
           <SyncStatus />
         </div>
       </aside>
 
       <main className="mx-auto w-full max-w-[480px] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-28 lg:max-w-[600px] lg:px-8 lg:pt-10 lg:pb-12">
         <div className="lg:hidden">
+          <FocusPill />
           <SyncStatus />
         </div>
         {children}
