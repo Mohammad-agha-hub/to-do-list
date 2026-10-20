@@ -3,44 +3,54 @@
 A personal daily-tasks + goals app. Small daily tasks roll up into long-term goals, so finishing
 today's list visibly moves the big things.
 
-Built with Next.js 16 (App Router + route handlers), SQLite (better-sqlite3), zod, Tailwind CSS 4,
-Recharts and TanStack Query. Installable as a PWA with offline viewing and ticking.
+Built with Next.js 16, Cloudflare Workers + D1 (via OpenNext), zod, Tailwind CSS 4, Recharts and
+TanStack Query. Installable as a PWA with offline viewing and ticking.
 
-## Quick start
+Live: https://momentum.ourhearts-mza.workers.dev
+
+## Quick start (local)
 
 ```bash
 npm install
-cp .env.example .env        # set APP_PASSWORD and SESSION_SECRET (openssl rand -hex 32)
-npm run seed                # optional: 60 days of demo data
-npm run dev                 # http://localhost:3000
+npm run db:migrate          # create the local D1 database
+npm run seed                # optional: 60 days of demo data (local only)
+npm run dev                 # http://localhost:3000, password "momentum"
 ```
 
-Production (one server for API + UI):
+Wrangler and OpenNext need Node 22+. On older Node the scripts run a cached Node 22 via
+`npx node@22` automatically (`scripts/node22.sh`).
+
+| Script                      | What it does                                                         |
+| --------------------------- | -------------------------------------------------------------------- |
+| `npm run dev`               | Dev server with the local D1 database                                |
+| `npm run deploy`            | Build for Workers and deploy to Cloudflare                           |
+| `npm run preview`           | Build for Workers and run that build locally (http://localhost:8787) |
+| `npm run db:migrate`        | Apply `migrations/` to the local database                            |
+| `npm run db:migrate:remote` | Apply `migrations/` to the deployed database                         |
+| `npm run seed`              | **Wipes** the local database and loads demo data (never remote)      |
+| `npm run reset`             | **Wipes** the local database, keeps the default areas                |
+| `npm run reset -- --remote` | **Wipes the deployed app's data** (asks you to type `delete`)        |
+| `npm test`                  | Unit + integration tests (Vitest)                                    |
+
+## Deploying
+
+The app runs as the Cloudflare Worker `momentum` with the D1 database `momentum` (see `wrangler.jsonc`).
+Secrets are set once on Cloudflare, not in the repo:
 
 ```bash
-npm run build && npm start  # PORT=3000 by default
+npm run wrangler -- secret put APP_PASSWORD     # your login password
+openssl rand -hex 32 | npm run wrangler -- secret put SESSION_SECRET
 ```
 
-| Script            | What it does                                                     |
-| ----------------- | ---------------------------------------------------------------- |
-| `npm run dev`     | Dev server with hot reload (service worker disabled)             |
-| `npm run build`   | Production build                                                 |
-| `npm start`       | Serve the production build                                       |
-| `npm run seed`    | **Wipes** the DB and loads demo data (3 goals, 7 habits, 60 days)|
-| `npm run reset`   | **Wipes** the DB, keeps only the default areas                   |
-| `npm test`        | Unit + integration tests (Vitest)                                |
-| `npm run typecheck` | TypeScript check                                               |
-
-Seed and reset work in place, so a running server picks up the new data without a restart.
+Then `npm run deploy` for every update. Schema changes go in a new file under `migrations/`
+followed by `npm run db:migrate:remote`.
 
 ## Configuration
 
-`.env`:
+Locally, `.env` (for `npm run dev`) and `.dev.vars` (for `npm run preview`); on Cloudflare, Worker secrets:
 
 - `APP_PASSWORD`: the single user's password. In development it defaults to `momentum` if unset.
 - `SESSION_SECRET`: signs the session cookie. Required in production.
-- `DATABASE_PATH`: SQLite file, default `./data/momentum.db`.
-- `INSECURE_COOKIE=1`: lets the cookie work over plain http in production (LAN testing only).
 
 Dates use **Asia/Karachi**, weeks start on **Monday**, and the day-start hour (default 4am, set in
 Settings) means 1am still counts as "today".
@@ -67,8 +77,7 @@ Settings) means 1am still counts as "today".
 
 ## Install on Android
 
-The PWA needs HTTPS (or `localhost`). Deploy behind HTTPS, open it in Chrome, then
-menu → *Install app*. Offline: previously visited screens load from cache, and completing or
+Open https://momentum.ourhearts-mza.workers.dev in Chrome, sign in, then menu → *Install app*. Offline: previously visited screens load from cache, and completing or
 editing tasks is queued and synced when the connection returns.
 
 ## Project layout
@@ -78,12 +87,13 @@ src/
   app/(app)/…        pages (client components that only talk to /api)
   app/api/…          REST route handlers (zod-validated)
   app/focus          full-screen focus timer
-  lib/server/        SQLite schema, rollover, habits, goals, stats, review, backup
+  lib/server/        D1 access, rollover, habits, goals, stats, review, backup, auth
   lib/shared/        dates (Karachi tz), quick-add parser, metrics (pace, streaks), schemas, types
   lib/client/        fetch + offline queue, React Query hooks, focus timer state, theme
   components/        UI
 public/sw.js         service worker
-scripts/             seed + reset
+migrations/          D1 schema
+scripts/             seed, reset, Node 22 wrapper
 ```
 
 ## Wrapping with Capacitor later
@@ -94,5 +104,5 @@ credentials; the server will need CORS and a `SameSite=None; Secure` cookie for 
 
 ## Backups
 
-Settings → Backup exports everything as JSON; importing replaces all data in one transaction.
-The database is a single SQLite file, so copying `data/momentum.db` (with the server stopped) works too.
+Settings → Backup exports everything as JSON; importing replaces all data in one batch.
+Cloudflare D1 also keeps 30 days of point-in-time recovery (`wrangler d1 time-travel`).

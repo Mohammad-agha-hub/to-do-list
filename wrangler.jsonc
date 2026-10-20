@@ -12,8 +12,7 @@
     {
       "binding": "DB",
       "database_name": "momentum",
-      // Filled in by `wrangler d1 create momentum`
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "f15951d7-30b8-424c-af4b-ed0756a32f6c",
       "migrations_dir": "migrations"
     }
   ],
