@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { useBootstrap } from "@/lib/client/hooks";
+import { applyTheme } from "@/lib/client/theme";
 import clsx from "clsx";
 import {
   BarChart3,
@@ -44,6 +47,16 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: boot } = useBootstrap();
+
+  // A device that never picked a theme follows the one saved in settings.
+  useEffect(() => {
+    try {
+      if (boot && !localStorage.getItem("theme") && boot.settings.theme !== "system") applyTheme(boot.settings.theme);
+    } catch {
+      /* storage blocked */
+    }
+  }, [boot]);
 
   return (
     <TaskUIProvider>
