@@ -126,8 +126,11 @@ export function useTaskActions() {
 
       try {
         const saved = await send<Task>("PATCH", `/api/tasks/${task.id}`, patch);
-        if (saved) placeTask(qc, saved);
-        invalidateTaskViews(qc);
+        // If it was queued offline, keep the optimistic state; a refetch would return stale cache.
+        if (saved) {
+          placeTask(qc, saved);
+          invalidateTaskViews(qc);
+        }
         return saved ?? next;
       } catch (e) {
         placeTask(qc, task); // roll back
@@ -182,8 +185,7 @@ export function useTaskActions() {
     async (task: Task) => {
       placeTask(qc, task, true);
       try {
-        await send("DELETE", `/api/tasks/${task.id}`);
-        invalidateTaskViews(qc);
+        if (await send("DELETE", `/api/tasks/${task.id}`)) invalidateTaskViews(qc);
       } catch (e) {
         placeTask(qc, task);
         throw e;

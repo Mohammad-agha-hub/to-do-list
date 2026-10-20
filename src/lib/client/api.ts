@@ -75,8 +75,47 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   return (await res.json()) as T;
 }
 
-export function get<T>(url: string): Promise<T> {
-  return request<T>("GET", url);
+export async function get<T>(url: string): Promise<T> {
+  const data = await request<T>("GET", url);
+  // While changes are waiting to sync, reads may come from the offline cache;
+  // re-apply queued task edits so the UI doesn't snap back.
+  return pendingCount() > 0 ? overlayQueued(data) : data;
+}
+
+function overlayQueued<T>(data: T): T {
+  const patches = new Map<number, Record<string, unknown>>();
+  for (const q of read<Queued[]>(QUEUE_KEY, [])) {
+    const m = /^\/api\/tasks\/(-?\d+)$/.exec(q.url);
+    if (m && q.method === "PATCH" && q.body && typeof q.body === "object") {
+      patches.set(Number(m[1]), { ...patches.get(Number(m[1])), ...(q.body as object) });
+    }
+    if (m && q.method === "DELETE") patches.set(Number(m[1]), { __deleted: true });
+  }
+  if (!patches.size) return data;
+
+  const walk = (v: unknown): unknown => {
+    if (Array.isArray(v)) {
+      return v.filter((x) => !(isTask(x) && patches.get(x.id)?.__deleted)).map(walk);
+    }
+    if (v && typeof v === "object") {
+      const o: Record<string, unknown> = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+      const id = isTask(o) ? o.id : null;
+      if (id !== null && patches.has(id)) Object.assign(o, patches.get(id));
+      // Today view: keep finished tasks in the "done" list.
+      if (Array.isArray(o.tasks) && Array.isArray(o.done)) {
+        const moved = (o.tasks as { status: string }[]).filter((t) => t.status === "done");
+        o.tasks = (o.tasks as { status: string }[]).filter((t) => t.status === "todo");
+        o.done = [...moved, ...(o.done as unknown[])];
+      }
+      return o;
+    }
+    return v;
+  };
+  return walk(data) as T;
+}
+
+function isTask(x: unknown): x is { id: number; title: string; status: string } {
+  return !!x && typeof x === "object" && "id" in x && "title" in x && "status" in x && "carried_over_count" in x;
 }
 
 const isNetworkError = (e: unknown) => e instanceof TypeError;

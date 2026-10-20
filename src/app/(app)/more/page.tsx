@@ -23,6 +23,8 @@ export default function MorePage() {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Don't leave cached data on the device after signing out.
+    if ("caches" in window) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
     location.href = "/login";
   }
 

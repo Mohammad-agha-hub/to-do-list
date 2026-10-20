@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Daily tasks that move long-term goals.",
   applicationName: "Momentum",
   appleWebApp: { capable: true, title: "Momentum", statusBarStyle: "default" },
-  icons: { icon: "/icons/icon.svg", apple: "/icons/icon-192.png" },
+  icons: { icon: "/icons/icon.svg", apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

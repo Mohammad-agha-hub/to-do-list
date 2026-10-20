@@ -16,6 +16,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
   useEffect(() => watchSystemTheme(), []);
+  useEffect(() => {
+    // Only in production: a service worker would fight with dev hot reloading.
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => null);
+    }
+  }, []);
   return (
     <QueryClientProvider client={client}>
       <ToastProvider>{children}</ToastProvider>
