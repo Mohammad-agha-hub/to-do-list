@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { setDb } from "./db";
 import { openSqlite } from "./sqlite";
-import { changePassword, checkPassword, createPassword, createSessionToken, needsSetup, verifySessionToken } from "./auth";
+import { changePassword, checkPassword, createPassword, createSessionToken, needsSetup, shouldRenew, verifySessionToken } from "./auth";
 
 const { conn, db } = openSqlite();
 const env = process.env as Record<string, string | undefined>;
@@ -48,10 +48,13 @@ describe("first-run password", () => {
 
   it("signs sessions with a generated key and rejects tampering", async () => {
     const token = await createSessionToken();
-    expect(await verifySessionToken(token)).toBe(true);
-    const [exp, sig] = token.split(".");
-    expect(await verifySessionToken(`${Number(exp) + 1}.${sig}`)).toBe(false);
-    expect(await verifySessionToken(`${exp}.x${sig.slice(1)}`)).toBe(false);
+    const exp = await verifySessionToken(token);
+    expect(exp).toBeGreaterThan(Date.now() + 390 * 86_400_000); // remembered for about a year
+    expect(shouldRenew(exp!)).toBe(false);
+    expect(shouldRenew(Date.now() + 100 * 86_400_000)).toBe(true);
+    const [e, sig] = token.split(".");
+    expect(await verifySessionToken(`${Number(e) + 1}.${sig}`)).toBeNull();
+    expect(await verifySessionToken(`${e}.x${sig.slice(1)}`)).toBeNull();
     const secret = conn.prepare("SELECT value FROM settings WHERE key = 'meta:session_secret'").get() as { value: string };
     expect(secret.value).toMatch(/^[0-9a-f]{64}$/);
   });

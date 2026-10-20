@@ -8,7 +8,10 @@
 import { db } from "./db";
 
 export const SESSION_COOKIE = "momentum_session";
-export const SESSION_DAYS = 60;
+// "Remember this device": sessions last ~a year (Chrome caps cookies at 400 days) and are renewed
+// while you use the app, so a signed-in device stays signed in until you sign out.
+export const SESSION_DAYS = 395;
+const RENEW_AFTER_DAYS = 7;
 export const MIN_PASSWORD = 8;
 
 const enc = new TextEncoder();
@@ -62,11 +65,17 @@ export async function createSessionToken(): Promise<string> {
   return `${exp}.${await sign(exp)}`;
 }
 
-export async function verifySessionToken(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+/** Returns the session's expiry (ms) if the token is valid, otherwise null. */
+export async function verifySessionToken(token: string | undefined): Promise<number | null> {
+  if (!token) return null;
   const [exp, sig] = token.split(".");
-  if (!exp || !sig || !safeEqual(sig, await sign(exp))) return false;
-  return Number(exp) > Date.now();
+  if (!exp || !sig || !safeEqual(sig, await sign(exp))) return null;
+  return Number(exp) > Date.now() ? Number(exp) : null;
+}
+
+/** True when a valid session is old enough that it should be re-issued with a fresh expiry. */
+export function shouldRenew(exp: number): boolean {
+  return exp - Date.now() < (SESSION_DAYS - RENEW_AFTER_DAYS) * 86_400_000;
 }
 
 // ---------- Password ----------
@@ -132,7 +141,7 @@ export function readCookie(req: Request, name: string): string | undefined {
   }
 }
 
-export async function isAuthenticated(req: Request): Promise<boolean> {
+export async function sessionExpiry(req: Request): Promise<number | null> {
   return verifySessionToken(readCookie(req, SESSION_COOKIE));
 }
 

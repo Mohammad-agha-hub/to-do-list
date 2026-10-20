@@ -9,6 +9,7 @@ import clsx from "clsx";
 import {
   BarChart3,
   CalendarRange,
+  CircleHelp,
   ClipboardCheck,
   Flame,
   Inbox,
@@ -34,6 +35,7 @@ const SECONDARY_NAV = [
   { href: "/upcoming", label: "Upcoming", icon: CalendarRange },
   { href: "/review", label: "Weekly review", icon: ClipboardCheck },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/help", label: "How to use", icon: CircleHelp },
 ];
 
 const MORE_ROUTES = ["/more", ...SECONDARY_NAV.map((n) => n.href)];

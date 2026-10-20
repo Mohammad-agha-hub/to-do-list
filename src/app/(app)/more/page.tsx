@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarRange, ChevronRight, ClipboardCheck, Inbox, LogOut, Moon, Settings, Timer } from "lucide-react";
+import { CalendarRange, ChevronRight, CircleHelp, ClipboardCheck, Inbox, LogOut, Moon, Settings, Timer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useBootstrap, useInbox, useUpcoming } from "@/lib/client/hooks";
@@ -19,6 +19,7 @@ export default function MorePage() {
     { href: "/review", label: "Weekly review", hint: "Look back, plan ahead", icon: ClipboardCheck },
     { href: "/focus", label: "Free focus", hint: "Pomodoro without a task", icon: Timer },
     { href: "/settings", label: "Settings", hint: "Areas, timer, theme, backup", icon: Settings },
+    { href: "/help", label: "How to use Momentum", hint: "What everything is and how to use it", icon: CircleHelp },
   ];
 
   async function logout() {

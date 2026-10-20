@@ -81,6 +81,8 @@ html,
 body {
   background: var(--bg);
   color: var(--fg);
+  /* No white rubber-band area when scrolling past the top or bottom. */
+  overscroll-behavior-y: none;
 }
 
 body {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
-import { isAuthenticated } from "./auth";
+import { createSessionToken, sessionCookie, sessionExpiry, shouldRenew } from "./auth";
 
 export class HttpError extends Error {
   constructor(
@@ -19,10 +19,13 @@ export type Ctx<P extends string = "id"> = { params: Promise<Record<P, string>> 
 export function route<C>(fn: (req: Request, ctx: C) => unknown | Promise<unknown>) {
   return async (req: Request, ctx: C) => {
     try {
-      if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const exp = await sessionExpiry(req);
+      if (exp === null) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const result = await fn(req, ctx);
-      if (result instanceof Response) return result;
-      return NextResponse.json(result ?? { ok: true });
+      const res = result instanceof NextResponse ? result : result instanceof Response ? result : NextResponse.json(result ?? { ok: true });
+      // Keep this device signed in: slide the expiry forward while the app is being used.
+      if (shouldRenew(exp) && res instanceof NextResponse) res.cookies.set(sessionCookie(await createSessionToken()));
+      return res;
     } catch (err) {
       if (err instanceof ZodError) {
         return NextResponse.json({ error: "Invalid input", issues: err.issues }, { status: 400 });

@@ -19,9 +19,17 @@ function LoginForm() {
   useEffect(() => {
     fetch("/api/auth/status")
       .then((r) => r.json())
-      .then((d) => setSetup(Boolean(d.setup)))
+      .then((d) => {
+        // Already signed in on this device: go straight to the app.
+        if (d.signedIn) {
+          const next = params.get("next");
+          router.replace(next && next.startsWith("/") ? next : "/");
+          return;
+        }
+        setSetup(Boolean(d.setup));
+      })
       .catch(() => setSetup(false));
-  }, []);
+  }, [params, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
