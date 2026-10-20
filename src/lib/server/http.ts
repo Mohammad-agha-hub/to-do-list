@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
+import { isAuthenticated } from "./auth";
 
 export class HttpError extends Error {
   constructor(
@@ -14,10 +15,11 @@ export const notFound = (what = "Not found") => new HttpError(404, what);
 
 export type Ctx<P extends string = "id"> = { params: Promise<Record<P, string>> };
 
-/** Wraps a route handler with JSON responses and consistent error handling. */
+/** Wraps a route handler with the session check, JSON responses and consistent error handling. */
 export function route<C>(fn: (req: Request, ctx: C) => unknown | Promise<unknown>) {
   return async (req: Request, ctx: C) => {
     try {
+      if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const result = await fn(req, ctx);
       if (result instanceof Response) return result;
       return NextResponse.json(result ?? { ok: true });

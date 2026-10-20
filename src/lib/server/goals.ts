@@ -21,28 +21,24 @@ const GOAL_COLUMNS = [
   "status",
 ] as const;
 
-export function getGoal(id: number): Goal {
-  const row = db().prepare("SELECT * FROM goals WHERE id = ?").get(id) as Goal | undefined;
+export async function getGoal(id: number): Promise<Goal> {
+  const row = await (await db()).get<Goal>("SELECT * FROM goals WHERE id = ?", [id]);
   if (!row) throw notFound("Goal not found");
   return row;
 }
 
-export function listGoalRows(): Goal[] {
-  return db()
-    .prepare(
-      `SELECT * FROM goals ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
-       deadline IS NULL, deadline, id`,
-    )
-    .all() as Goal[];
+export async function listGoalRows(): Promise<Goal[]> {
+  return (await db()).all<Goal>(
+    `SELECT * FROM goals ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
+     deadline IS NULL, deadline, id`,
+  );
 }
 
-function linkedCounts(): Map<number, { done: number; total: number }> {
-  const rows = db()
-    .prepare(
-      `SELECT goal_id, SUM(status = 'done') AS done, COUNT(*) AS total
-       FROM tasks WHERE goal_id IS NOT NULL AND status != 'skipped' GROUP BY goal_id`,
-    )
-    .all() as { goal_id: number; done: number; total: number }[];
+async function linkedCounts(): Promise<Map<number, { done: number; total: number }>> {
+  const rows = await (await db()).all<{ goal_id: number; done: number; total: number }>(
+    `SELECT goal_id, SUM(status = 'done') AS done, COUNT(*) AS total
+     FROM tasks WHERE goal_id IS NOT NULL AND status != 'skipped' GROUP BY goal_id`,
+  );
   return new Map(rows.map((r) => [r.goal_id, { done: r.done, total: r.total }]));
 }
 
@@ -51,19 +47,21 @@ export function summarize(goal: Goal, linked: { done: number; total: number }, t
   return { ...goal, done, total, progress: progressRatio(done, total), pace: goalPace(goal, done, total, today) };
 }
 
-export function listGoals(today = getToday()): GoalSummary[] {
-  const counts = linkedCounts();
-  return listGoalRows().map((g) => summarize(g, counts.get(g.id) ?? { done: 0, total: 0 }, today));
+export async function listGoals(today?: string): Promise<GoalSummary[]> {
+  const [day, counts, rows] = await Promise.all([today ?? getToday(), linkedCounts(), listGoalRows()]);
+  return rows.map((g) => summarize(g, counts.get(g.id) ?? { done: 0, total: 0 }, day));
 }
 
-export function goalDetail(id: number): GoalDetail {
-  const today = getToday();
-  const goal = getGoal(id);
-  const tasks = listTasks("goal_id = @id", { id }, "status = 'done', status = 'skipped', scheduled_date IS NULL, scheduled_date, priority, sort_order");
+export async function goalDetail(id: number): Promise<GoalDetail> {
+  const [today, goal, tasks, milestones, logs] = await Promise.all([
+    getToday(),
+    getGoal(id),
+    listTasks("goal_id = @id", { id }, "status = 'done', status = 'skipped', scheduled_date IS NULL, scheduled_date, priority, sort_order"),
+    listMilestones(id),
+    (await db()).all<ProgressLog>("SELECT id, goal_id, date, delta, note FROM progress_logs WHERE goal_id = ? ORDER BY date DESC, id DESC", [id]),
+  ]);
   const linked = tasks.filter((t) => t.status !== "skipped");
   const summary = summarize(goal, { done: linked.filter((t) => t.status === "done").length, total: linked.length }, today);
-  const milestones = listMilestones(id);
-  const logs = db().prepare("SELECT id, goal_id, date, delta, note FROM progress_logs WHERE goal_id = ? ORDER BY date DESC, id DESC").all(id) as ProgressLog[];
 
   // Progress over time, as cumulative units per day.
   const events = new Map<string, number>();
@@ -86,91 +84,81 @@ export function goalDetail(id: number): GoalDetail {
   return { ...summary, milestones, tasks, logs, chart };
 }
 
-export function createGoal(input: z.infer<typeof GoalInput>): Goal {
+export async function createGoal(input: z.infer<typeof GoalInput>): Promise<Goal> {
   const values = sqlValues(input);
   const cols = Object.keys(values);
-  const info = db()
-    .prepare(`INSERT INTO goals (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})`)
-    .run(values);
-  return getGoal(Number(info.lastInsertRowid));
+  const { lastId } = await (await db()).run(`INSERT INTO goals (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})`, values);
+  return getGoal(lastId);
 }
 
-export function updateGoal(id: number, patch: z.infer<typeof GoalPatch>): Goal {
-  getGoal(id);
+export async function updateGoal(id: number, patch: z.infer<typeof GoalPatch>): Promise<Goal> {
+  await getGoal(id);
   const values = sqlValues(patch);
   const set = setClause(values, GOAL_COLUMNS);
-  if (set) db().prepare(`UPDATE goals SET ${set} WHERE id = @id`).run({ ...values, id });
+  if (set) await (await db()).run(`UPDATE goals SET ${set} WHERE id = @id`, { ...values, id });
   return getGoal(id);
 }
 
-export function deleteGoal(id: number) {
-  getGoal(id);
-  db().prepare("DELETE FROM goals WHERE id = ?").run(id);
+export async function deleteGoal(id: number) {
+  await getGoal(id);
+  await (await db()).run("DELETE FROM goals WHERE id = ?", [id]);
 }
 
 // ---------- Milestones ----------
 
-export function listMilestones(goalId: number): Milestone[] {
-  return db()
-    .prepare("SELECT * FROM milestones WHERE goal_id = ? ORDER BY sort_order, due_date IS NULL, due_date, id")
-    .all(goalId)
-    .map((r) => bools(r as Milestone, ["done"]));
+export async function listMilestones(goalId: number): Promise<Milestone[]> {
+  const rows = await (await db()).all<Milestone>("SELECT * FROM milestones WHERE goal_id = ? ORDER BY sort_order, due_date IS NULL, due_date, id", [goalId]);
+  return rows.map((r) => bools(r, ["done"]));
 }
 
-function getMilestone(id: number): Milestone {
-  const row = db().prepare("SELECT * FROM milestones WHERE id = ?").get(id);
+async function getMilestone(id: number): Promise<Milestone> {
+  const row = await (await db()).get<Milestone>("SELECT * FROM milestones WHERE id = ?", [id]);
   if (!row) throw notFound("Milestone not found");
-  return bools(row as Milestone, ["done"]);
+  return bools(row, ["done"]);
 }
 
-export function createMilestone(goalId: number, input: z.infer<typeof MilestoneInput>): Milestone {
-  getGoal(goalId);
+export async function createMilestone(goalId: number, input: z.infer<typeof MilestoneInput>): Promise<Milestone> {
+  await getGoal(goalId);
   const values = sqlValues({ ...input, goal_id: goalId });
   if (!input.sort_order) {
-    const { n } = db().prepare("SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM milestones WHERE goal_id = ?").get(goalId) as { n: number };
-    values.sort_order = n;
+    const row = await (await db()).get<{ n: number }>("SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM milestones WHERE goal_id = ?", [goalId]);
+    values.sort_order = row?.n ?? 1;
   }
   const cols = Object.keys(values);
-  const info = db()
-    .prepare(`INSERT INTO milestones (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})`)
-    .run(values);
-  return getMilestone(Number(info.lastInsertRowid));
+  const { lastId } = await (await db()).run(`INSERT INTO milestones (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})`, values);
+  return getMilestone(lastId);
 }
 
-export function updateMilestone(id: number, patch: z.infer<typeof MilestonePatch>): Milestone {
-  getMilestone(id);
+export async function updateMilestone(id: number, patch: z.infer<typeof MilestonePatch>): Promise<Milestone> {
+  await getMilestone(id);
   const values = sqlValues(patch);
   const set = setClause(values, ["title", "due_date", "done", "sort_order"]);
-  if (set) db().prepare(`UPDATE milestones SET ${set} WHERE id = @id`).run({ ...values, id });
+  if (set) await (await db()).run(`UPDATE milestones SET ${set} WHERE id = @id`, { ...values, id });
   return getMilestone(id);
 }
 
-export function deleteMilestone(id: number) {
-  getMilestone(id);
-  db().prepare("DELETE FROM milestones WHERE id = ?").run(id);
+export async function deleteMilestone(id: number) {
+  await getMilestone(id);
+  await (await db()).run("DELETE FROM milestones WHERE id = ?", [id]);
 }
 
 // ---------- Numeric progress logs ----------
 
-export function addProgressLog(goalId: number, input: z.infer<typeof ProgressLogInput>): ProgressLog {
-  getGoal(goalId);
-  const date = input.date ?? getToday();
-  const tx = db().transaction(() => {
-    const info = db()
-      .prepare("INSERT INTO progress_logs (goal_id, date, delta, note) VALUES (?, ?, ?, ?)")
-      .run(goalId, date, input.delta, input.note);
-    db().prepare("UPDATE goals SET current_value = current_value + ? WHERE id = ?").run(input.delta, goalId);
-    return Number(info.lastInsertRowid);
-  });
-  const id = tx();
-  return { id, goal_id: goalId, date, delta: input.delta, note: input.note };
+export async function addProgressLog(goalId: number, input: z.infer<typeof ProgressLogInput>): Promise<ProgressLog> {
+  await getGoal(goalId);
+  const date = input.date ?? (await getToday());
+  const [inserted] = await (await db()).batch([
+    { sql: "INSERT INTO progress_logs (goal_id, date, delta, note) VALUES (?, ?, ?, ?)", params: [goalId, date, input.delta, input.note] },
+    { sql: "UPDATE goals SET current_value = current_value + ? WHERE id = ?", params: [input.delta, goalId] },
+  ]);
+  return { id: inserted.lastId, goal_id: goalId, date, delta: input.delta, note: input.note };
 }
 
-export function deleteProgressLog(id: number) {
-  const log = db().prepare("SELECT * FROM progress_logs WHERE id = ?").get(id) as ProgressLog | undefined;
+export async function deleteProgressLog(id: number) {
+  const log = await (await db()).get<ProgressLog>("SELECT * FROM progress_logs WHERE id = ?", [id]);
   if (!log) throw notFound("Log not found");
-  db().transaction(() => {
-    db().prepare("DELETE FROM progress_logs WHERE id = ?").run(id);
-    db().prepare("UPDATE goals SET current_value = current_value - ? WHERE id = ?").run(log.delta, log.goal_id);
-  })();
+  await (await db()).batch([
+    { sql: "DELETE FROM progress_logs WHERE id = ?", params: [id] },
+    { sql: "UPDATE goals SET current_value = current_value - ? WHERE id = ?", params: [log.delta, log.goal_id] },
+  ]);
 }

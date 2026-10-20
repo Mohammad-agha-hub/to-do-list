@@ -5,9 +5,7 @@ import { listGoalRows } from "@/lib/server/goals";
 import { getSettings } from "@/lib/server/settings";
 import type { Bootstrap } from "@/lib/shared/types";
 
-export const GET = route((): Bootstrap => ({
-  today: ensureDay(),
-  areas: listAreas(),
-  goals: listGoalRows(),
-  settings: getSettings(),
-}));
+export const GET = route(async (): Promise<Bootstrap> => {
+  const [today, areas, goals, settings] = await Promise.all([ensureDay(), listAreas(), listGoalRows(), getSettings()]);
+  return { today, areas, goals, settings };
+});

@@ -4,24 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "sh scripts/node22.sh node_modules/next/dist/bin/next dev",
     "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "start": "npm run preview",
+    "preview": "sh scripts/node22.sh node_modules/@opennextjs/cloudflare/dist/cli/index.js build && sh scripts/node22.sh node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
+    "deploy": "sh scripts/node22.sh node_modules/@opennextjs/cloudflare/dist/cli/index.js build && sh scripts/node22.sh node_modules/@opennextjs/cloudflare/dist/cli/index.js deploy",
+    "wrangler": "sh scripts/node22.sh node_modules/wrangler/bin/wrangler.js",
+    "db:migrate": "sh scripts/node22.sh node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --local",
+    "db:migrate:remote": "sh scripts/node22.sh node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --remote",
     "seed": "tsx scripts/seed.ts",
-    "reset": "tsx scripts/reset.ts"
+    "reset": "tsx scripts/reset.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.3.0",
+    "@opennextjs/cloudflare": "^1.20.12",
     "@tanstack/react-query": "^5.104.4",
-    "better-sqlite3": "^12.11.1",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
-    "dotenv": "^18.0.8",
     "lucide-react": "^1.59.0",
     "next": "^16.4.2",
     "react": "^19.3.1",
@@ -37,10 +41,12 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "better-sqlite3": "^12.11.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.151.2"
   },
   "engines": {
     "node": ">=20.9"

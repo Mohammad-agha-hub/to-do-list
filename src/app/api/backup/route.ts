@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { body, route } from "@/lib/server/http";
 import { BackupFile, exportBackup, importBackup } from "@/lib/server/backup";
 
-export const GET = route(() => {
-  const data = exportBackup();
+export const GET = route(async () => {
+  const data = await exportBackup();
   return new NextResponse(JSON.stringify(data, null, 2), {
     headers: {
       "Content-Type": "application/json",
@@ -12,4 +12,4 @@ export const GET = route(() => {
   });
 });
 
-export const POST = route(async (req) => ({ imported: importBackup(await body(req, BackupFile)) }));
+export const POST = route(async (req) => ({ imported: await importBackup(await body(req, BackupFile)) }));

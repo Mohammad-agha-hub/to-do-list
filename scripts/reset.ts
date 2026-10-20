@@ -1,20 +1,17 @@
-// Wipes all data (in place, so a running server keeps working) and restores the default areas.
-import "dotenv/config";
-import { TABLES, dbPath, openDb } from "../src/lib/server/db";
+// Wipes all data and restores the default areas.
+//   npm run reset             → local dev database
+//   npm run reset -- --remote → the deployed app (asks for confirmation)
+import { createInterface } from "node:readline/promises";
+import { openSqlite } from "../src/lib/server/sqlite";
+import { applyToD1, dumpSql, isRemote } from "./d1";
 
-export function resetDatabase() {
-  const file = dbPath();
-  const conn = openDb(file);
-  conn.pragma("foreign_keys = OFF");
-  conn.transaction(() => {
-    for (const t of TABLES) conn.exec(`DROP TABLE IF EXISTS ${t}`);
-  })();
-  conn.pragma("foreign_keys = ON");
-  conn.close();
-  openDb(file).close(); // recreates the schema and default areas
-  return file;
+const remote = isRemote();
+if (remote) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question("This deletes ALL data in the deployed Momentum app. Type 'delete' to continue: ");
+  rl.close();
+  if (answer.trim() !== "delete") process.exit(1);
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log(`Reset ${resetDatabase()}`);
-}
+const { conn } = openSqlite();
+applyToD1(dumpSql(conn), remote);
+console.log(`Reset ${remote ? "deployed" : "local"} database.`);

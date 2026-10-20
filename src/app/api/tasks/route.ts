@@ -5,8 +5,8 @@ import { TaskInput } from "@/lib/shared/schemas";
 import { addDays } from "@/lib/shared/dates";
 
 // ?view=inbox | upcoming | date&date=YYYY-MM-DD
-export const GET = route((req) => {
-  const today = ensureDay();
+export const GET = route(async (req) => {
+  const today = await ensureDay();
   const params = new URL(req.url).searchParams;
   switch (params.get("view") ?? "inbox") {
     case "inbox":

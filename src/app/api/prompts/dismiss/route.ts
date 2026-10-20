@@ -9,5 +9,5 @@ const Input = z.object({
 
 export const POST = route(async (req) => {
   const { kind, key } = await body(req, Input);
-  setMeta(`${kind}_dismissed:${key}`, "1");
+  await setMeta(`${kind}_dismissed:${key}`, "1");
 });

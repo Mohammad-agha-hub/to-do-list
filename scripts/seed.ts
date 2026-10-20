@@ -1,15 +1,20 @@
-// Resets the database and fills it with ~60 days of realistic demo history.
-import "dotenv/config";
-import { resetDatabase } from "./reset";
-import { db } from "../src/lib/server/db";
+// Replaces the LOCAL dev database with ~60 days of realistic demo history.
+// The data is built in a temporary SQLite database, then loaded into local D1.
+import { setDb } from "../src/lib/server/db";
 import { ensureDay } from "../src/lib/server/day";
+import { openSqlite } from "../src/lib/server/sqlite";
+import { applyToD1, dumpSql, isRemote } from "./d1";
 import { setMeta, today as getToday } from "../src/lib/server/settings";
 import { addDays, dateRange, startOfDayUTC, weekStart, weekday } from "../src/lib/shared/dates";
 import { isScheduledOn } from "../src/lib/shared/metrics";
 import type { RecurrenceRule } from "../src/lib/shared/schemas";
 
-resetDatabase();
-const conn = db();
+if (isRemote()) {
+  console.error("Refusing to load demo data into the deployed app.");
+  process.exit(1);
+}
+const { conn, db } = openSqlite();
+setDb(db);
 
 // Deterministic randomness so the demo looks the same every time.
 let seed = 20261019;
@@ -24,7 +29,7 @@ const between = (a: number, b: number) => a + Math.floor(rand() * (b - a + 1));
 const at = (date: string, hour: number, minute = 0) =>
   new Date(new Date(startOfDayUTC(date)).getTime() + (hour * 60 + minute) * 60_000).toISOString();
 
-const today = getToday();
+const today = await getToday();
 const yesterday = addDays(today, -1);
 const START = addDays(today, -60);
 const A = { School: 1, HazaraKids: 2, Clients: 3, Mehwar: 4, German: 5, Fitness: 6, Personal: 7 };
@@ -322,8 +327,8 @@ for (let w = weekStart(addDays(START, 7)); w < addDays(weekStart(today), -7); w 
 }
 
 // Let the real rollover carry yesterday's leftovers into today and create today's habit instances.
-setMeta("last_rollover", yesterday);
-ensureDay();
+await setMeta("last_rollover", yesterday);
+await ensureDay();
 
 const count = (sql: string) => (conn.prepare(sql).get() as { n: number }).n;
 console.log(
@@ -331,3 +336,5 @@ console.log(
     `${count("SELECT COUNT(*) n FROM goals")} goals, ${count("SELECT COUNT(*) n FROM focus_sessions")} focus sessions, ` +
     `${count("SELECT COUNT(*) n FROM tasks WHERE scheduled_date = '" + today + "'")} tasks today.`,
 );
+
+applyToD1(dumpSql(conn), false);
