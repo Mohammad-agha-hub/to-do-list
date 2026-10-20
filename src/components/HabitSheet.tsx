@@ -26,8 +26,11 @@ export function HabitSheet({ habit, onClose }: { habit: Habit | null; onClose: (
   const [active, setActive] = useState(habit?.active ?? true);
   const [type, setType] = useState<RuleType>(habit?.rule.type ?? "daily");
   const [days, setDays] = useState<number[]>(habit?.rule.type === "weekdays" ? habit.rule.days : [1, 2, 3, 4, 5]);
-  const [every, setEvery] = useState(habit?.rule.type === "interval" ? habit.rule.every : 2);
-  const [count, setCount] = useState(habit?.rule.type === "weekly" ? habit.rule.count : 3);
+  // Kept as raw text while typing; clamping per keystroke made it impossible to clear and retype.
+  const [everyText, setEveryText] = useState(String(habit?.rule.type === "interval" ? habit.rule.every : 2));
+  const [countText, setCountText] = useState(String(habit?.rule.type === "weekly" ? habit.rule.count : 3));
+  const every = clampInt(everyText, 2, 90, 2);
+  const count = clampInt(countText, 1, 7, 3);
 
   const rule: RecurrenceRule =
     type === "daily"
@@ -121,13 +124,31 @@ export function HabitSheet({ habit, onClose }: { habit: Habit | null; onClose: (
         {type === "interval" && (
           <label className="flex items-center gap-2 text-sm">
             Every
-            <input type="number" min={2} max={90} className="input w-20" value={every} onChange={(e) => setEvery(Math.max(2, Number(e.target.value) || 2))} />
+            <input
+              type="number"
+              min={2}
+              max={90}
+              inputMode="numeric"
+              className="input w-20"
+              value={everyText}
+              onChange={(e) => setEveryText(e.target.value)}
+              onBlur={() => setEveryText(String(every))}
+            />
             days
           </label>
         )}
         {type === "weekly" && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="number" min={1} max={7} className="input w-20" value={count} onChange={(e) => setCount(Math.min(7, Math.max(1, Number(e.target.value) || 1)))} />
+            <input
+              type="number"
+              min={1}
+              max={7}
+              inputMode="numeric"
+              className="input w-20"
+              value={countText}
+              onChange={(e) => setCountText(e.target.value)}
+              onBlur={() => setCountText(String(count))}
+            />
             times a week, any days
           </label>
         )}
@@ -178,4 +199,9 @@ export function HabitSheet({ habit, onClose }: { habit: Habit | null; onClose: (
       </div>
     </Sheet>
   );
+}
+
+function clampInt(text: string, min: number, max: number, fallback: number) {
+  const n = Math.round(Number(text));
+  return text.trim() === "" || !Number.isFinite(n) ? fallback : Math.min(max, Math.max(min, n));
 }
