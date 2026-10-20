@@ -8,16 +8,17 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { get, send } from "@/lib/client/api";
 import { celebrate } from "@/lib/client/celebrate";
 import {
+  budgetOf,
   focusedMinutes,
   formatClock,
   loadFocus,
   nextPhase,
   pause,
-  phaseMs,
   remainingMs,
   resume,
   saveFocus,
   startPhase,
+  totalMs,
   type FocusState,
   type Lengths,
 } from "@/lib/client/focus";
@@ -89,7 +90,7 @@ function Focus() {
   }, []);
 
   const taskId = state?.taskId ?? (params.get("task") ? Number(params.get("task")) : null);
-  const { data: task } = useQuery({
+  const { data: task, isError: taskFailed } = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => get<Task>(`/api/tasks/${taskId}`),
     enabled: Boolean(taskId && taskId > 0),
@@ -110,20 +111,22 @@ function Focus() {
     [qc],
   );
 
-  // Start or resume a session once settings are known.
+  // Start or resume a session once settings (and the task, for its estimate) are known.
+  const wanted = params.get("task") ? Number(params.get("task")) : null;
+  const taskReady = !wanted || wanted <= 0 || task !== undefined || taskFailed;
   useEffect(() => {
-    if (!lengths || state) return;
-    const wanted = params.get("task") ? Number(params.get("task")) : null;
+    if (!lengths || state || !taskReady) return;
     const existing = loadFocus();
     if (existing && (!params.has("task") || existing.taskId === wanted)) {
       setState(existing);
     } else {
       if (existing) logSession(existing, Math.min(Date.now(), existing.endsAt ?? Date.now()));
-      update(startPhase(wanted, "focus", 0, lengths));
+      const leftMin = task?.estimate_min ? task.estimate_min - task.actual_min : 0;
+      update(startPhase(wanted, "focus", 0, lengths, Date.now(), { budgetMs: leftMin > 0 ? leftMin * 60_000 : null, spentMs: 0 }));
     }
     setCanNotify(!("Notification" in window) || Notification.permission !== "default");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lengths !== null]);
+  }, [lengths !== null, taskReady]);
 
   // Display tick + catch up after the screen was locked.
   useEffect(() => {
@@ -143,15 +146,15 @@ function Focus() {
     handled.current = state.phaseStartedAt;
     if (state.phase === "focus") {
       logSession(state, state.endsAt);
-      notify("Focus block done. Take a break.");
       celebrate();
     } else {
       notify("Break's over. Ready for the next one?");
     }
     let next = nextPhase(state, lengths);
+    if (state.phase === "focus") notify(next.estimateMet ? "You've put in the time you planned for this task." : "Focus block done. Take a break.");
     // If the next phase also elapsed while we were away, wait for the user instead.
     if (next.endsAt !== null && next.endsAt <= Date.now()) {
-      next = pause(startPhase(state.taskId, "focus", next.cycle, lengths));
+      next = pause(startPhase(state.taskId, "focus", next.cycle, lengths, Date.now(), budgetOf(next)));
     }
     update(next);
   }, [now, state, lengths, logSession, update]);
@@ -179,7 +182,7 @@ function Focus() {
 
   const running = state.pausedRemaining === null;
   const isFocus = state.phase === "focus";
-  const total = phaseMs(state.phase, lengths);
+  const total = totalMs(state, lengths);
   const color = isFocus ? "var(--primary)" : "var(--success)";
 
   async function stop() {
@@ -233,6 +236,11 @@ function Focus() {
           </div>
         </ProgressRing>
         <p className="max-w-xs text-center text-lg leading-snug font-medium">{task?.title ?? (taskId ? " " : "Free focus")}</p>
+        {state.estimateMet && task?.estimate_min && (
+          <p className="-mt-5 max-w-xs text-center text-sm text-muted">
+            You've reached your {task.estimate_min} min estimate. Mark it done, or press play to keep going.
+          </p>
+        )}
       </div>
 
       <div className="flex w-full max-w-md flex-col items-center gap-5">
@@ -241,7 +249,7 @@ function Focus() {
             <Square className="size-5" />
           </button>
           <button
-            onClick={() => update(running ? pause(state) : resume(state))}
+            onClick={() => update(running ? pause(state) : resume({ ...state, estimateMet: false }))}
             className="grid size-20 place-items-center rounded-full text-on-primary shadow-[0_12px_32px_-10px_rgb(43_140_235/0.7)] transition active:scale-95"
             style={{ background: color }}
             aria-label={running ? "Pause" : "Resume"}
@@ -252,7 +260,11 @@ function Focus() {
             onClick={() => {
               if (isFocus) logSession(state, Date.now());
               handled.current = state.phaseStartedAt;
-              update(isFocus ? nextPhase({ ...state, endsAt: Date.now() }, lengths) : startPhase(state.taskId, "focus", state.cycle, lengths));
+              update(
+                isFocus
+                  ? nextPhase({ ...state, endsAt: Date.now() }, lengths)
+                  : startPhase(state.taskId, "focus", state.cycle, lengths, Date.now(), budgetOf(state)),
+              );
             }}
             className="grid size-14 place-items-center rounded-full bg-surface-2 text-muted transition hover:text-fg active:scale-95"
             aria-label={isFocus ? "End block early and take a break" : "Skip break"}

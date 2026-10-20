@@ -67,14 +67,21 @@ export async function listHabits(today?: string): Promise<HabitSummary[]> {
  */
 export async function instanceStmts(date: string): Promise<Stmt[]> {
   const [habits, done] = await Promise.all([listHabitRows(), habitDoneDates()]);
-  return habits
+  const inserts = habits
     .filter((h) => h.active && isScheduledOn(h.rule, date, h.start_date))
     .filter((h) => h.rule.type !== "weekly" || weekDoneCount(date, done.get(h.id) ?? new Set()) < h.rule.count)
     .map((h) => ({
-      sql: `INSERT OR IGNORE INTO tasks (title, area_id, estimate_min, scheduled_date, recurrence_id, priority, sort_order)
-            VALUES (?, ?, ?, ?, ?, 2, 0)`,
-      params: [h.title, h.area_id, h.estimate_min, date, h.id],
+      sql: `INSERT OR IGNORE INTO tasks (title, area_id, goal_id, estimate_min, scheduled_date, recurrence_id, priority, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, 2, 0)`,
+      params: [h.title, h.area_id, h.goal_id, h.estimate_min, date, h.id],
     }));
+  // Instances created before goal_id was copied over still point at no goal.
+  const backfill: Stmt = {
+    sql: `UPDATE tasks SET goal_id = (SELECT goal_id FROM recurrences r WHERE r.id = tasks.recurrence_id)
+          WHERE recurrence_id IS NOT NULL AND goal_id IS NULL`,
+    params: [],
+  };
+  return [backfill, ...inserts];
 }
 
 export async function generateInstances(date: string) {
@@ -105,8 +112,8 @@ export async function updateHabit(id: number, patch: z.infer<typeof HabitPatch>)
   stmts.push(
     scheduled
       ? {
-          sql: "UPDATE tasks SET title = ?, area_id = ?, estimate_min = ? WHERE recurrence_id = ? AND scheduled_date >= ? AND status = 'todo'",
-          params: [h.title, h.area_id, h.estimate_min, id, today],
+          sql: "UPDATE tasks SET title = ?, area_id = ?, goal_id = ?, estimate_min = ? WHERE recurrence_id = ? AND scheduled_date >= ? AND status = 'todo'",
+          params: [h.title, h.area_id, h.goal_id, h.estimate_min, id, today],
         }
       : { sql: "DELETE FROM tasks WHERE recurrence_id = ? AND scheduled_date >= ? AND status = 'todo'", params: [id, today] },
   );

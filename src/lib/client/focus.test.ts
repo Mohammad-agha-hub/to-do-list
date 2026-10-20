@@ -29,4 +29,16 @@ describe("focus timer", () => {
     s = nextPhase(nextPhase(nextPhase(nextPhase(nextPhase(nextPhase(s, L), L), L), L), L), L);
     expect(s).toMatchObject({ phase: "long_break", cycle: 4 });
   });
+
+  it("caps focus blocks at the task's remaining estimate, then stops", () => {
+    const b = { budgetMs: 30 * MIN, spentMs: 0 };
+    let s = startPhase(1, "focus", 0, L, 0, b);
+    expect(remainingMs(s, 0)).toBe(25 * MIN);
+    s = nextPhase(s, L);
+    expect(s).toMatchObject({ phase: "break", spentMs: 25 * MIN });
+    s = nextPhase(s, L);
+    expect(s).toMatchObject({ phase: "focus", totalMs: 5 * MIN });
+    s = nextPhase(s, L);
+    expect(s).toMatchObject({ phase: "focus", estimateMet: true, budgetMs: null, endsAt: null });
+  });
 });
