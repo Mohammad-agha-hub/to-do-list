@@ -10,7 +10,7 @@ const RUNTIME = `momentum-runtime-${VERSION}`;
 // Static, build-independent files only. Pages live in the runtime cache so a new deploy
 // replaces them instead of an install-time copy shadowing them.
 const SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
-const NO_CACHE = ["/api/auth", "/api/backup", "/login"];
+const NO_CACHE = ["/api/auth", "/api/backup"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

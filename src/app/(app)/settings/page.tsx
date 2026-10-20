@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Archive, ArchiveRestore, Download, Laptop, Moon, Plus, Sun, Trash2, Upload } from "lucide-react";
+import { Archive, ArchiveRestore, Download, KeyRound, Laptop, Moon, Plus, Sun, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { send } from "@/lib/client/api";
 import { invalidateTaskViews, keys, useBootstrap } from "@/lib/client/hooks";
@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const toast = useToast();
   const [theme, setTheme] = useState<Theme>("system");
   const [editingArea, setEditingArea] = useState<Area | "new" | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => setTheme(getStoredTheme()), []);
@@ -216,6 +217,13 @@ export default function SettingsPage() {
         />
       </Section>
 
+      <Section title="Security">
+        <button onClick={() => setChangingPassword(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium transition hover:bg-surface-2">
+          <KeyRound className="size-4 text-primary" /> Change password
+        </button>
+      </Section>
+
+      {changingPassword && <PasswordSheet onClose={() => setChangingPassword(false)} />}
       {editingArea && <AreaSheet area={editingArea === "new" ? null : editingArea} onClose={() => setEditingArea(null)} />}
     </div>
   );
@@ -299,6 +307,47 @@ function AreaSheet({ area, onClose }: { area: Area | null; onClose: () => void }
             ))}
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function PasswordSheet({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [current, setCurrent] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const valid = current && password.length >= 8 && password === confirm;
+
+  async function save() {
+    setError("");
+    try {
+      await send("POST", "/api/auth/password", { current, password });
+      onClose();
+      toast("Password changed");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title="Change password"
+      footer={
+        <button className="btn-primary w-full" disabled={!valid} onClick={save}>
+          Save new password
+        </button>
+      }
+    >
+      <div className="space-y-3 pt-1">
+        <input className="input" type="password" autoComplete="current-password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input className="input" type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input className="input" type="password" autoComplete="new-password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        {password && confirm && password !== confirm && <p className="text-sm text-danger">The new passwords don&apos;t match.</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     </Sheet>
   );

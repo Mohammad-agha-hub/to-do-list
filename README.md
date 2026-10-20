@@ -35,22 +35,22 @@ Wrangler and OpenNext need Node 22+. On older Node the scripts run a cached Node
 ## Deploying
 
 The app runs as the Cloudflare Worker `momentum` with the D1 database `momentum` (see `wrangler.jsonc`).
-Secrets are set once on Cloudflare, not in the repo:
+No secrets need configuring: on first visit the app asks you to **create your password** (stored as a
+salted PBKDF2 hash), and it generates its own session-signing key. Change the password in
+Settings → Security.
 
-```bash
-npm run wrangler -- secret put APP_PASSWORD     # your login password
-openssl rand -hex 32 | npm run wrangler -- secret put SESSION_SECRET
-```
-
-Then `npm run deploy` for every update. Schema changes go in a new file under `migrations/`
+Run `npm run deploy` for every update. Schema changes go in a new file under `migrations/`
 followed by `npm run db:migrate:remote`.
 
 ## Configuration
 
-Locally, `.env` (for `npm run dev`) and `.dev.vars` (for `npm run preview`); on Cloudflare, Worker secrets:
+All optional. Locally, `.env` (for `npm run dev`) and `.dev.vars` (for `npm run preview`):
 
-- `APP_PASSWORD`: the single user's password. In development it defaults to `momentum` if unset.
-- `SESSION_SECRET`: signs the session cookie. Required in production.
+- `APP_PASSWORD`: overrides the stored password. In development the password is `momentum` until you set one.
+- `SESSION_SECRET`: overrides the generated session-signing key.
+
+> **Don't put real secrets in `.env` for a deploy.** The Cloudflare build embeds `.env` values into the
+> deployed Worker. Leave these unset and use the first-run password screen instead.
 
 Dates use **Asia/Karachi**, weeks start on **Monday**, and the day-start hour (default 4am, set in
 Settings) means 1am still counts as "today".
