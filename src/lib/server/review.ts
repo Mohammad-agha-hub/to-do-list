@@ -4,7 +4,7 @@ import { ensureDay } from "./day";
 import { listGoals } from "./goals";
 import { setMeta } from "./settings";
 import { listTasks } from "./tasks";
-import { addDays } from "@/lib/shared/dates";
+import { addDays, weekStart } from "@/lib/shared/dates";
 import type { WeeklyReviewInput } from "@/lib/shared/schemas";
 import type { ReviewData, WeeklyReview } from "@/lib/shared/types";
 
@@ -60,12 +60,10 @@ export function saveReview(weekStart: string, input: z.infer<typeof WeeklyReview
   return getReview(weekStart)!;
 }
 
-export function latestNextWeekFocus(today: string): { week_start: string; next_week_focus: string } | null {
-  return (
-    (db()
-      .prepare(
-        "SELECT week_start, next_week_focus FROM weekly_reviews WHERE next_week_focus != '' AND week_start < ? ORDER BY week_start DESC LIMIT 1",
-      )
-      .get(today) as { week_start: string; next_week_focus: string } | undefined) ?? null
-  );
+/** The focus set in last week's review applies to this week. */
+export function thisWeekFocus(today: string): string | null {
+  const row = db()
+    .prepare("SELECT next_week_focus FROM weekly_reviews WHERE week_start = ? AND next_week_focus != ''")
+    .get(addDays(weekStart(today), -7)) as { next_week_focus: string } | undefined;
+  return row?.next_week_focus ?? null;
 }

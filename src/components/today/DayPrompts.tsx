@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ClipboardCheck, Moon, X } from "lucide-react";
+import { ClipboardCheck, Compass, Moon, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { send } from "@/lib/client/api";
@@ -19,6 +19,15 @@ export function DayPrompts({ data }: { data: TodayData }) {
   return (
     <>
       {data.reviewDue && <ReviewBanner week={data.reviewDue} />}
+      {data.weekFocus && (
+        <p className="flex items-start gap-2.5 rounded-2xl bg-primary-soft px-4 py-3 text-sm">
+          <Compass className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            <span className="font-semibold text-primary">This week: </span>
+            {data.weekFocus}
+          </span>
+        </p>
+      )}
       {data.reflectionDue && <ReflectionCard today={data.today} />}
     </>
   );

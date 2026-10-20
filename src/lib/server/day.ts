@@ -2,6 +2,7 @@ import { bools, db } from "./db";
 import { expireFlexibleInstances, generateInstances } from "./habits";
 import { getMeta, getSettings, setMeta, today as getToday } from "./settings";
 import { listTasks } from "./tasks";
+import { thisWeekFocus } from "./review";
 import { addDays, localHour, weekStart, weekday } from "@/lib/shared/dates";
 import type { DayLogInput } from "@/lib/shared/schemas";
 import type { DayLog, TodayData } from "@/lib/shared/types";
@@ -87,6 +88,7 @@ export function todayData(): TodayData {
     availableMin: Math.round(settings.available_hours * 60),
     dayLog,
     reviewDue: pendingReview(today, hour),
+    weekFocus: thisWeekFocus(today),
     reflectionDue: lateEvening && !(dayLog && (dayLog.energy || dayLog.mood)) && !getMeta(`reflection_dismissed:${today}`),
   };
 }

@@ -135,6 +135,7 @@ export type TodayData = {
   dayLog: DayLog | null;
   reviewDue: string | null; // week_start of a pending review
   reflectionDue: boolean;
+  weekFocus: string | null; // from last week's review
 };
 
 export type GoalDetail = GoalSummary & {
