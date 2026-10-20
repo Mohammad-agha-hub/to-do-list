@@ -1,7 +1,8 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { watchSystemTheme } from "@/lib/client/theme";
 import { ToastProvider } from "./Toast";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+  useEffect(() => watchSystemTheme(), []);
   return (
     <QueryClientProvider client={client}>
       <ToastProvider>{children}</ToastProvider>
