@@ -3,6 +3,8 @@
 // Pomodoro state machine driven entirely by timestamps, so it stays correct when the
 // screen locks or the tab is suspended: remaining = endsAt - now, never a counted interval.
 
+import { send } from "./api";
+
 export type Phase = "focus" | "break" | "long_break";
 
 export type FocusState = {
@@ -28,6 +30,8 @@ export type FocusState = {
   spentMs?: number;
   /** The last block used up the estimate; the timer waits for the user. */
   estimateMet?: boolean;
+  /** Focus time of the current phase already added to the task (ms). */
+  loggedMs?: number;
 };
 
 export type Budget = { budgetMs: number | null; spentMs: number };
@@ -106,6 +110,25 @@ export function focusedMinutes(s: FocusState, now = Date.now()) {
   const until = s.endsAt !== null ? Math.min(now, s.endsAt) : now;
   const live = s.runningSince !== null ? until - s.runningSince : 0;
   return (s.bankedMs + Math.max(0, live)) / 60_000;
+}
+
+/**
+ * Adds focus time not yet logged to the task, in whole minutes: rounded down while the
+ * block is still going (`final` false), rounded when it's over. Returns the state with that
+ * time marked as logged, and the request (null when there was nothing to log).
+ */
+export function logFocus(s: FocusState, now = Date.now(), final = true): { state: FocusState; sent: Promise<unknown> | null } {
+  if (s.phase !== "focus") return { state: s, sent: null };
+  const ms = focusedMinutes(s, now) * 60_000 - (s.loggedMs ?? 0);
+  const minutes = Math.max(0, final ? Math.round(ms / 60_000) : Math.floor(ms / 60_000));
+  if (!minutes) return { state: s, sent: null };
+  const sent = send("POST", "/api/focus", {
+    task_id: s.taskId && s.taskId > 0 ? s.taskId : null,
+    started_at: new Date(s.phaseStartedAt).toISOString(),
+    ended_at: new Date(Math.max(s.phaseStartedAt, Math.min(now, s.endsAt ?? now))).toISOString(),
+    duration_min: minutes,
+  }).catch(() => null);
+  return { state: { ...s, loggedMs: (s.loggedMs ?? 0) + minutes * 60_000 }, sent };
 }
 
 /** The phase that follows a finished one, starting exactly when the previous one ended. */

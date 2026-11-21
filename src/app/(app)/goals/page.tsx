@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useAreas, useGoals } from "@/lib/client/hooks";
 import { formatShort } from "@/lib/shared/dates";
 import type { GoalSummary } from "@/lib/shared/types";
-import { formatAmount, PACE_META, PacePill } from "@/components/GoalBits";
+import { formatAmount, goalPillStatus, PACE_META, PacePill } from "@/components/GoalBits";
 import { GoalSheet } from "@/components/GoalSheet";
 import { AreaIcon, EmptyState, PageHeader, ProgressBar, Skeleton } from "@/components/ui";
 
@@ -82,7 +82,7 @@ export default function GoalsPage() {
 function GoalCard({ goal: g }: { goal: GoalSummary }) {
   const areas = useAreas();
   const area = areas.byId(g.area_id);
-  const pace = g.status === "active" ? g.pace.status : g.status === "completed" ? "done" : "none";
+  const pace = goalPillStatus(g);
   const amounts = g.type === "task_based" ? `${g.done}/${g.total} tasks` : `${formatAmount(g.done, "")}/${formatAmount(g.total, g.unit)}`;
 
   return (

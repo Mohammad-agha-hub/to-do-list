@@ -83,5 +83,6 @@ describe("goalPace", () => {
     expect(goalPace(goal, 30, 30, today).status).toBe("done");
     expect(goalPace({ ...goal, deadline: null }, 3, 30, today).status).toBe("none");
     expect(goalPace({ ...goal, deadline: addDays(today, -1) }, 3, 30, today).status).toBe("behind");
+    expect(goalPace(goal, 0, 0, today).status).toBe("empty");
   });
 });

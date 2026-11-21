@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { useCallback, useMemo } from "react";
 import { get, nextTempId, send } from "./api";
 import { celebrate } from "./celebrate";
+import { loadFocus, logFocus, saveFocus } from "./focus";
 import { addDays } from "@/lib/shared/dates";
 import type {
   Area,
@@ -116,6 +117,13 @@ export function useTaskActions() {
         next.is_top3 = false;
       }
       placeTask(qc, next);
+
+      // Finished while its focus timer is still going: log that time and stop the timer.
+      const focus = patch.status === "done" ? loadFocus() : null;
+      if (focus && focus.taskId === task.id) {
+        logFocus(focus).sent?.then(() => invalidateTaskViews(qc));
+        saveFocus(null);
+      }
 
       // Top 3 all done → confetti.
       if (patch.status === "done" && task.is_top3) {

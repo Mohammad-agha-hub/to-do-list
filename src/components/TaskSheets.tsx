@@ -222,7 +222,9 @@ export function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => vo
     if (!form.title.trim()) return;
     onClose();
     try {
-      await update(task, { ...form, title: form.title.trim() });
+      // Only send time spent if it was edited, so focus minutes logged meanwhile aren't overwritten.
+      const { actual_min, ...rest } = form;
+      await update(task, { ...rest, title: form.title.trim(), ...(actual_min !== task.actual_min && { actual_min }) });
     } catch (err) {
       toast((err as Error).message);
     }

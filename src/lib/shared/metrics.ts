@@ -35,7 +35,10 @@ export function goalPace(
   if (goal.status === "completed" || (total > 0 && remaining === 0)) {
     return { status: "done", requiredPerWeek: 0, actualPerWeek, daysLeft: null, label: "Goal reached" };
   }
-  if (!goal.deadline || total <= 0) {
+  if (total <= 0) {
+    return { status: "empty", requiredPerWeek: null, actualPerWeek, daysLeft: null, label: "Link tasks to this goal to track its pace" };
+  }
+  if (!goal.deadline) {
     return { status: "none", requiredPerWeek: null, actualPerWeek, daysLeft: null, label: `Doing ${actualPerWeek} ${unit}/week` };
   }
   const daysLeft = diffDays(goal.deadline, today);

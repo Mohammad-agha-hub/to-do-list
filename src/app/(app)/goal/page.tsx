@@ -11,7 +11,7 @@ import { keys, useAreas, useBootstrap, useGoal, useTaskActions } from "@/lib/cli
 import { formatDay, formatShort } from "@/lib/shared/dates";
 import type { GoalDetail, Milestone, ProgressLog } from "@/lib/shared/types";
 import { GoalProgressChart } from "@/components/charts/GoalProgressChart";
-import { formatAmount, PACE_META, PacePill } from "@/components/GoalBits";
+import { formatAmount, goalPillStatus, PACE_META, PacePill } from "@/components/GoalBits";
 import { GoalSheet } from "@/components/GoalSheet";
 import { TaskRow } from "@/components/TaskRow";
 import { useTaskUI } from "@/components/TaskSheets";
@@ -44,7 +44,7 @@ function GoalView() {
   }
 
   const area = areas.byId(g.area_id);
-  const pace = g.status === "active" ? g.pace.status : g.status === "completed" ? "done" : "none";
+  const pace = goalPillStatus(g);
 
   return (
     <div className="space-y-5">

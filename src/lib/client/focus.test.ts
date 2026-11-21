@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { focusedMinutes, nextPhase, pause, remainingMs, resume, startPhase } from "./focus";
+import { describe, expect, it, vi } from "vitest";
+import { focusedMinutes, logFocus, nextPhase, pause, remainingMs, resume, startPhase } from "./focus";
+
+const send = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+vi.mock("./api", () => ({ send }));
 
 const L = { focus: 25, break: 5, longBreak: 15, cycles: 4 };
 const MIN = 60_000;
@@ -40,5 +43,18 @@ describe("focus timer", () => {
     expect(s).toMatchObject({ phase: "focus", totalMs: 5 * MIN });
     s = nextPhase(s, L);
     expect(s).toMatchObject({ phase: "focus", estimateMet: true, budgetMs: null, endsAt: null });
+  });
+
+  it("logs partial blocks in whole minutes without counting anything twice", () => {
+    let s = startPhase(1, "focus", 0, L, 0);
+    // Left the timer after 8.7 min: bank 8, keep the rest for later.
+    s = logFocus(s, 8.7 * MIN, false).state;
+    expect(send).toHaveBeenLastCalledWith("POST", "/api/focus", expect.objectContaining({ task_id: 1, duration_min: 8 }));
+    expect(s.loggedMs).toBe(8 * MIN);
+    // Under a minute more since then: nothing to bank yet.
+    expect(logFocus(s, 8.9 * MIN, false).sent).toBeNull();
+    // Stopped at 12.6 min: the remaining 4.6 rounds to 5.
+    logFocus(s, 12.6 * MIN);
+    expect(send).toHaveBeenLastCalledWith("POST", "/api/focus", expect.objectContaining({ duration_min: 5 }));
   });
 });

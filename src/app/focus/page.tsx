@@ -9,9 +9,9 @@ import { get, send } from "@/lib/client/api";
 import { celebrate } from "@/lib/client/celebrate";
 import {
   budgetOf,
-  focusedMinutes,
   formatClock,
   loadFocus,
+  logFocus,
   nextPhase,
   pause,
   remainingMs,
@@ -98,18 +98,30 @@ function Focus() {
 
   const logSession = useCallback(
     async (s: FocusState, endedAt: number) => {
-      const minutes = focusedMinutes(s, endedAt);
-      if (s.phase !== "focus" || minutes < 1) return;
-      await send("POST", "/api/focus", {
-        task_id: s.taskId && s.taskId > 0 ? s.taskId : null,
-        started_at: new Date(s.phaseStartedAt).toISOString(),
-        ended_at: new Date(endedAt).toISOString(),
-        duration_min: Math.round(minutes * 10) / 10,
-      }).catch(() => null);
+      const { sent } = logFocus(s, endedAt);
+      if (!sent) return;
+      await sent;
       invalidateTaskViews(qc);
     },
     [qc],
   );
+
+  // Bank the minutes focused so far whenever the timer is left, so time spent stays current
+  // even if the block is never finished here.
+  const saveProgress = useCallback(() => {
+    const s = loadFocus();
+    if (!s) return;
+    const { state: next, sent } = logFocus(s, Date.now(), false);
+    if (!sent) return;
+    update(next);
+    sent.then(() => invalidateTaskViews(qc));
+  }, [qc, update]);
+
+  useEffect(() => {
+    const onHide = () => document.visibilityState === "hidden" && saveProgress();
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [saveProgress]);
 
   // Start or resume a session once settings (and the task, for its estimate) are known.
   const wanted = params.get("task") ? Number(params.get("task")) : null;
@@ -204,7 +216,12 @@ function Focus() {
   return (
     <main className="fixed inset-0 z-[70] flex flex-col items-center justify-between bg-bg px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="flex w-full max-w-md items-center justify-between">
-        <button onClick={() => router.back()} className="btn-ghost -ml-3 px-3" aria-label="Minimise timer (keeps running)">
+        <button
+          onClick={() => {
+            saveProgress();
+            router.back();
+          }}
+          className="btn-ghost -ml-3 px-3" aria-label="Minimise timer (keeps running)">
           <X className="size-5" />
         </button>
         <div className="flex gap-1.5" aria-label={`Block ${(state.cycle % lengths.cycles) + 1} of ${lengths.cycles}`}>

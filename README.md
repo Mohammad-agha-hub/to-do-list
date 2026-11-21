@@ -106,3 +106,4 @@ credentials; the server will need CORS and a `SameSite=None; Secure` cookie for 
 
 Settings → Backup exports everything as JSON; importing replaces all data in one batch.
 Cloudflare D1 also keeps 30 days of point-in-time recovery (`wrangler d1 time-travel`).
+# to-do-list

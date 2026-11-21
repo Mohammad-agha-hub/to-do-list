@@ -11,7 +11,9 @@ export type Area = {
 
 export type GoalType = "task_based" | "numeric";
 export type GoalStatus = "active" | "completed" | "paused" | "abandoned";
-export type PaceStatus = "on_track" | "at_risk" | "behind" | "done" | "none";
+export type PaceStatus = "on_track" | "at_risk" | "behind" | "done" | "empty" | "none";
+/** What a goal's status pill shows: its pace while active, otherwise its status. */
+export type GoalPillStatus = PaceStatus | "paused" | "abandoned";
 
 export type Pace = {
   status: PaceStatus;
